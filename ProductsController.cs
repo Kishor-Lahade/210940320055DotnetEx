@@ -1,133 +1,167 @@
-﻿using System;
+﻿using _210940320055.Models;
+using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.Entity;
-using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
-using System.Web.Http.Description;
-using _210940320055WebAPI;
+using System.Web;
+using System.Web.Mvc;
 
-namespace _210940320055WebAPI.Controllers
+namespace _210940320055.Content
 {
-    public class ProductsController : ApiController
+    public class ProductsController : Controller
     {
-        private sept2021Entities db = new sept2021Entities();
-
-        // GET: api/Products
-        public IQueryable<Product> GetProducts()
+        // GET: Products
+        public ActionResult Index()
         {
-            return db.Products;
-        }
 
-        // GET: api/Products/5
-        [ResponseType(typeof(Product))]
-        public IHttpActionResult GetProduct(int id)
-        {
-            Product product = db.Products.Find(id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(product);
-        }
-
-        // PUT: api/Products/5
-        [ResponseType(typeof(void))]
-        public IHttpActionResult PutProduct(int id, Product product)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (id != product.ProductId)
-            {
-                return BadRequest();
-            }
-
-            db.Entry(product).State = EntityState.Modified;
+            SqlConnection sc = new SqlConnection();
+            sc.ConnectionString = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=sept2021;Integrated Security=True";
+            sc.Open();
+            SqlCommand cm = new SqlCommand();
+            cm.Connection = sc;
+            cm.CommandType = System.Data.CommandType.Text;
+            cm.CommandText = "select * from Products";
+            List<Product> list = new List<Product>();
 
             try
             {
-                db.SaveChanges();
+                SqlDataReader dr = cm.ExecuteReader();
+                while (dr.Read())
+                {
+                    Product p = new Product();
+                    p.ProductId = (int)dr["ProductId"];
+                    p.ProductName = (string)dr["ProductName"];
+                    p.Rate = (decimal)dr["Rate"];
+                    p.Description = (string)dr["Description"];
+                    p.CategoryName = (string)dr["CategoryName"];
+                    
+                   
+                    list.Add(p);
+                }
+                sc.Close();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception e)
             {
-                if (!ProductExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
 
-            return StatusCode(HttpStatusCode.NoContent);
+            }
+            return View(list);
         }
 
-        // POST: api/Products
-        [ResponseType(typeof(Product))]
-        public IHttpActionResult PostProduct(Product product)
+        // GET: Products/Details/5
+        public ActionResult Details(int id)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            return View();
+        }
 
-            db.Products.Add(product);
+        // GET: Products/Create
+        public ActionResult Create()
+        {
+            return View();
+        }
+
+        // POST: Products/Create
+        [HttpPost]
+        public ActionResult Create(FormCollection collection)
+        {
+            try
+            {
+                // TODO: Add insert logic here
+
+                return RedirectToAction("Index");
+            }
+            catch
+            {
+                return View();
+            }
+        }
+
+        // GET: Products/Edit/5
+        public ActionResult Edit(int id=1)
+        {
+            SqlConnection sc = new SqlConnection();
+            sc.ConnectionString = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=sept2021;Integrated Security=True";
+            sc.Open();
+
+
+            SqlCommand cm = new SqlCommand();
+            cm.Connection = sc;
+            cm.CommandType = System.Data.CommandType.Text;
+            cm.CommandText = "select * from Products where ProductId=@Id";
+            cm.Parameters.AddWithValue("@id", id);
+            Product obj = null;
 
             try
             {
-                db.SaveChanges();
-            }
-            catch (DbUpdateException)
-            {
-                if (ProductExists(product.ProductId))
+                SqlDataReader dr = cm.ExecuteReader();
+                if (dr.Read())
                 {
-                    return Conflict();
+                    obj = new Product { ProductId = (int)id, ProductName = dr.GetString(1), Rate = dr.GetDecimal(2), Description = dr.GetString(3), CategoryName=dr.GetString(4) };
                 }
-                else
-                {
-                    throw;
-                }
+                dr.Close();
+                sc.Close();
             }
-
-            return CreatedAtRoute("DefaultApi", new { id = product.ProductId }, product);
-        }
-
-        // DELETE: api/Products/5
-        [ResponseType(typeof(Product))]
-        public IHttpActionResult DeleteProduct(int id)
-        {
-            Product product = db.Products.Find(id);
-            if (product == null)
+            catch (Exception e)
             {
-                return NotFound();
+
             }
-
-            db.Products.Remove(product);
-            db.SaveChanges();
-
-            return Ok(product);
+            return View(obj);
         }
 
-        protected override void Dispose(bool disposing)
+        // POST: Products/Edit/5
+        [HttpPost]
+        public ActionResult Edit(Product obj)
         {
-            if (disposing)
+            SqlConnection sc = new SqlConnection();
+            sc.ConnectionString = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=sept2021;Integrated Security=True";
+            sc.Open();
+
+
+            try
             {
-                db.Dispose();
+                SqlCommand cm = new SqlCommand();
+                cm.Connection = sc;
+                 cm.CommandType = System.Data.CommandType.StoredProcedure;
+
+                 cm.CommandText = "updateProduct";
+             
+               
+                cm.Parameters.AddWithValue("@ProductName", obj.ProductName);
+                cm.Parameters.AddWithValue("@Rate", obj.Rate);
+                cm.Parameters.AddWithValue("@Description", obj.Description);
+                cm.Parameters.AddWithValue("@CategoryName", obj.CategoryName);
+                cm.ExecuteNonQuery();
+                return RedirectToAction("Index");
             }
-            base.Dispose(disposing);
+
+            catch (Exception e)
+            {
+                return View(obj);
+            }
+            finally
+            {
+                sc.Close();
+            }
+        }
+        // GET: Products/Delete/5
+        public ActionResult Delete(int id)
+        {
+            return View();
         }
 
-        private bool ProductExists(int id)
+        // POST: Products/Delete/5
+        [HttpPost]
+        public ActionResult Delete(int id, FormCollection collection)
         {
-            return db.Products.Count(e => e.ProductId == id) > 0;
+            try
+            {
+                // TODO: Add delete logic here
+
+                return RedirectToAction("Index");
+            }
+            catch
+            {
+                return View();
+            }
         }
     }
 }
